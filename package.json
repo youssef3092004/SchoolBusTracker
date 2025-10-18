@@ -1,0 +1,31 @@
+{
+  "name": "schoolbustracker",
+  "version": "1.0.0",
+  "description": "SchoolBusTracker is an application to track school buses in real time, manage routes, monitor student pickup/dropoff status, and notify guardians. The project includes a backend API, optional web dashboard, and mobile client integration for drivers and guardians.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/youssef3092004/SchoolBusTracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/youssef3092004/SchoolBusTracker/issues"
+  },
+  "homepage": "https://github.com/youssef3092004/SchoolBusTracker#readme",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemon": "^3.1.10",
+    "pg": "^8.16.3",
+    "redis": "^5.8.3"
+  }
+}
