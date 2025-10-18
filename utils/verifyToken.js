@@ -3,11 +3,19 @@ const pool = require("../config/db");
 
 const verifyToken = async (req, res, next) => {
   try {
-    const token = req.headers.authorization.split(" ")[1];
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        message: "Authorization denied: No token provided",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "authorization denied: No token provided",
+        message: "Authorization denied: Invalid token format",
       });
     }
 
@@ -22,7 +30,7 @@ const verifyToken = async (req, res, next) => {
         message: "authorization denied: Token is Expired",
       });
     }
-      
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
