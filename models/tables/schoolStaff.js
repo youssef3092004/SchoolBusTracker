@@ -5,10 +5,10 @@ async function createSchoolStaffTable() {
         CREATE TABLE IF NOT EXISTS SchoolStaff (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             school_id UUID REFERENCES School(id) ON DELETE CASCADE,
+            role UUID REFERENCES RolePermission(id) ON DELETE SET NULL,
             name VARCHAR(100) NOT NULL,
             email VARCHAR(100) UNIQUE NOT NULL,
             password VARCHAR(100) NOT NULL,
-            role VARCHAR(100) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
