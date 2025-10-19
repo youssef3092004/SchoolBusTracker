@@ -31,14 +31,7 @@ const createPermissionRole = async (req, res, next) => {
       "SELECT * FROM RolePermission WHERE permission_id = $1",
       [permission_id]
     );
-
-    if (exists.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "This permission is already assigned to the role",
-      });
-    }
-
+    
     const result = await pool.query(
       `INSERT INTO RolePermission (role, permission_id, is_allowed)
        VALUES ($1, $2, $3) RETURNING *`,
