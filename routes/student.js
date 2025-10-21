@@ -7,14 +7,15 @@ const {
   deleteStudentById,
   deleteAllStudents,
 } = require("../controllers/student");
+const validateToken = require("../utils/verifyToken");
 
 const router = Router();
 
-router.post("/create", createStudent);
-router.get("/get/:id", getStudentById);
-router.get("/getAll", getAllStudents);
-router.patch("/update/:id", updateStudentById);
-router.delete("/delete/:id", deleteStudentById);
-router.delete("/deleteAll", deleteAllStudents);
+router.post("/create", validateToken, createStudent);
+router.get("/get/:id", validateToken, getStudentById);
+router.get("/getAll", validateToken, getAllStudents);
+router.patch("/update/:id", validateToken, updateStudentById);
+router.delete("/delete/:id", validateToken, deleteStudentById);
+router.delete("/deleteAll", validateToken, deleteAllStudents);
 
 module.exports = router;

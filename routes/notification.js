@@ -7,14 +7,15 @@ const {
   deleteNotificationById,
   deleteAllNotifications,
 } = require("../controllers/notification");
+const validateToken = require("../utils/verifyToken");
 
 const router = Router();
 
-router.post("/create", createNotification);
-router.get("/get/:id", getNotificationById);
-router.get("/getAll", getAllNotifications);
-router.patch("/update/:id", updateNotificationById);
-router.delete("/delete/:id", deleteNotificationById);
-router.delete("/deleteAll", deleteAllNotifications);
+router.post("/create", validateToken, createNotification);
+router.get("/get/:id", validateToken, getNotificationById);
+router.get("/getAll", validateToken, getAllNotifications);
+router.patch("/update/:id", validateToken, updateNotificationById);
+router.delete("/delete/:id", validateToken, deleteNotificationById);
+router.delete("/deleteAll", validateToken, deleteAllNotifications);
 
 module.exports = router;
