@@ -4,7 +4,7 @@ const pool = require("../config/db");
 const pagination = require("../utils/pagination");
 const redis = require("../config/redis");
 
-const registerSupervisor = async (req, res, next) => {
+const registerSupervisor = async (req, res) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "school") {
       return res.status(403).json({
@@ -17,20 +17,19 @@ const registerSupervisor = async (req, res, next) => {
     const { name, school_id, governorate } = req.body;
 
     const requiredFields = { name, school_id, governorate };
-
-    for (let i in requiredFields) {
-      if (!requiredFields[i]) {
+    for (let field in requiredFields) {
+      if (!requiredFields[field]) {
         return res.status(400).json({
           success: false,
-          message: `${i.charAt(0).toUpperCase() + i.slice(1)} is required`,
+          message: `${field.charAt(0).toUpperCase() + field.slice(1)} is required`,
         });
       }
     }
 
     if (req.user.role === "school") {
       const schoolCheck = await pool.query(
-        "SELECT * FROM School WHERE id = $1",
-        [req.user.id]
+        "SELECT id FROM School WHERE id = $1",
+        [req.user.school_id || req.user.id]
       );
 
       if (
@@ -40,37 +39,34 @@ const registerSupervisor = async (req, res, next) => {
         return res.status(403).json({
           success: false,
           message:
-            "Access denied: cannot register supervisor for another school",
+            "Forbidden: cannot register supervisor for another school",
         });
       }
-
-      const existSupervisor = await pool.query(
-        `
-            INSERT INTO Supervisor (name, school_id, governorate)
-            VALUES ($1, $2, $3)
-            RETURNING id, name, default_email, password, created_at;
-            `,
-        [name, school_id, governorate]
-      );
-
-      const supervisor = existSupervisor.rows[0];
-
-      const { id, password } = supervisor;
-      const passwordHashed = await bcrypt.hash(password, 10);
-
-      await pool.query(`UPDATE Supervisor SET password = $1 WHERE id = $2`, [
-        passwordHashed,
-        id,
-      ]);
-
-      supervisor.password = passwordHashed;
-
-      return res.status(201).json({
-        success: true,
-        message: "Supervisor registered successfully",
-        supervisor: supervisor,
-      });
     }
+
+    const inserted = await pool.query(
+      `
+      INSERT INTO Supervisor (name, school_id, governorate)
+      VALUES ($1, $2, $3)
+      RETURNING id, name, default_email, password, created_at;
+      `,
+      [name, school_id, governorate]
+    );
+
+    const supervisor = inserted.rows[0];
+
+    const hashedPassword = await bcrypt.hash(supervisor.password, 10);
+
+    await pool.query(
+      `UPDATE Supervisor SET password = $1 WHERE id = $2`,
+      [hashedPassword, supervisor.id]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Supervisor registered successfully",
+      data: supervisor
+    });
   } catch (error) {
     console.error("Error registering supervisor:", error);
     return res.status(500).json({
