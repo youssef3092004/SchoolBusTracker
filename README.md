@@ -140,7 +140,7 @@ Then open in your browser:
 4. Deploy — Vercel auto-detects and builds Node.js  
 
 **Production Example:**  
-https://pinbus.vercel.app/api
+[https://pinbus.vercel.app/api](https://school-bus-tracker-l7p87tx9s-youssef3092004s-projects.vercel.app)
 ✅ Keep it exactly like that — it’s clean and correct.  
 
 ---
