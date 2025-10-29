@@ -1,6 +1,6 @@
 # 🚌 PINBUS – School Bus Tracker Backend
 
-[![Deploy on Vercel](https://vercel.com/button)](https://vercel.com)  
+[![Deploy on Vercel](https://vercel.com/button)]([https://vercel.com](https://school-bus-tracker-l7p87tx9s-youssef3092004s-projects.vercel.app))  
 **Backend for the PINBUS Mobile Application**
 
 ---
@@ -102,43 +102,6 @@ Each endpoint is secured by **JWT authentication**, and **Redis caching** accele
 
 ---
 
-## 📂 Folder Structure
-PINBUS-Backend/
-│
-├── config/
-│ ├── db.js # PostgreSQL (Supabase) connection
-│ └── redis.js # Redis configuration
-│
-├── controllers/
-│ ├── admin.js
-│ ├── attendance.js
-│ ├── bus.js
-│ ├── busAssignment.js
-│ ├── busLocation.js
-│ ├── driver.js
-│ ├── emergencyContact.js
-│ ├── notification.js
-│ ├── parent.js
-│ ├── permission.js
-│ ├── plan.js
-│ ├── rolePermission.js
-│ ├── school.js
-│ ├── schoolStaff.js
-│ ├── student.js
-│ └── supervisor.js
-│
-├── utils/
-│ ├── pagination.js
-│ ├── validate.js
-│ └── verifyToken.js
-│
-├── server.js
-├── vercel.json
-├── package.json
-└── .gitignore
-
----
-
 ## 🔐 Authentication Flow
 
 1. Login via `/api/<role>/login`
@@ -195,7 +158,7 @@ https://pinbus.vercel.app/api
 **Author:** Your Name  
 **Project:** PINBUS – School Bus Tracker  
 **Backend:** Node.js / Express / Supabase / Redis  
-**Deployment:** [Vercel](https://vercel.com)
+**Deployment:** [Vercel]([https://vercel.com](https://school-bus-tracker-l7p87tx9s-youssef3092004s-projects.vercel.app))
 
 ---
 
