@@ -88,12 +88,13 @@ const getAllBusAssignments = async (req, res, next) => {
     if (
       req.user.role !== "admin" &&
       req.user.role !== "school" &&
+      req.user.role !== "supervisor" &&
       req.user.role !== "school_staff"
     ) {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school staff can create attendance records",
+          "Access denied: only admin, supervisors, school staff can view all attendance records",
       });
     }
     const { page, limit, skip } = pagination(req);
@@ -154,7 +155,7 @@ const getBusAssignmentById = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, supervisors, school staff can create attendance records",
+          "Access denied: only admin, supervisors, school staff can view attendance records",
       });
     }
 
@@ -196,7 +197,7 @@ const getAssignmentsBySupervisor = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, supervisors, school staff can create attendance records",
+          "Access denied: only admin, supervisors, school staff can view attendance records",
       });
     }
     const { id } = req.params;
@@ -250,7 +251,7 @@ const getAssignmentsByStudent = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, supervisors, school staff can create attendance records",
+          "Access denied: only admin, supervisors, school staff can view attendance records",
       });
     }
     const { id } = req.params;
@@ -295,6 +296,19 @@ const getAssignmentsByStudent = async (req, res, next) => {
 
 const updateBusAssignmentById = async (req, res, next) => {
   try {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "supervisor" &&
+      req.user.role !== "school_staff"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, supervisors, school staff can update attendance records",
+      });
+    }
+
     const { id } = req.params;
     const { supervisor_id, student_id, route_name, pickup_time, dropoff_time } =
       req.body;
@@ -365,6 +379,18 @@ const updateBusAssignmentById = async (req, res, next) => {
 
 const deleteBusAssignmentById = async (req, res, next) => {
   try {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "supervisor" &&
+      req.user.role !== "school_staff"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, supervisors, school staff can delete attendance records",
+      });
+    }
     const { id } = req.params;
 
     const result = await pool.query(
@@ -394,6 +420,19 @@ const deleteBusAssignmentById = async (req, res, next) => {
 
 const deleteAllBusAssignments = async (req, res, next) => {
   try {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "supervisor" &&
+      req.user.role !== "school_staff"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, supervisors, school staff can delete all attendance records",
+      });
+    }
+
     const result = await pool.query("DELETE FROM BusAssignment;");
 
     if (result.rowCount === 0) {
