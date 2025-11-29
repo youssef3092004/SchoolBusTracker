@@ -3,13 +3,19 @@ const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const pagination = require("../utils/pagination");
 const redis = require("../config/redis");
+const checkLimit = require("../utils/checkLimit");
 
 const registerParent = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin" && req.user.role !== "school") {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "schoolStaff"
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Access denied: only school or admin can register a parent",
+        message:
+          "Access denied: only school or admin or schoolStaff can register a parent",
       });
     }
 
@@ -29,7 +35,7 @@ const registerParent = async (req, res, next) => {
     if (req.user.role === "school") {
       const schoolCheck = await pool.query(
         "SELECT * FROM School WHERE id = $1",
-        [req.user.id]
+        [school_id]
       );
       if (
         schoolCheck.rows.length === 0 ||
@@ -41,6 +47,24 @@ const registerParent = async (req, res, next) => {
         });
       }
     }
+
+    const isLimitReached = await checkLimit(school_id, "parent");
+
+    if (isLimitReached) {
+      return res.status(400).json({
+        success: false,
+        message: "Parent limit reached for this plan",
+      });
+    }
+
+    await pool.query(
+      `
+      UPDATE SchoolUsage
+      SET parents_count = parents_count + 1
+      WHERE school_id = $1
+    `,
+      [school_id]
+    );
 
     const existParent = await pool.query(
       `
@@ -179,12 +203,13 @@ const updateParent = async (req, res, next) => {
     if (
       req.user.role !== "school" &&
       req.user.role !== "admin" &&
+      req.user.role !== "schoolStaff" &&
       req.user.role !== "parent"
     ) {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin or school or parent can update a parent",
+          "Access denied: only admin or school or parent or schoolStaff can update a parent",
       });
     }
 
@@ -254,10 +279,15 @@ const updateParent = async (req, res, next) => {
 
 const getParentById = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin" && req.user.role !== "school") {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "schoolStaff"
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Access denied: only admin or school can view parent details",
+        message:
+          "Access denied: only admin or school or schoolStaff can view parent details",
       });
     }
 
@@ -295,10 +325,15 @@ const getParentById = async (req, res, next) => {
 
 const getAllParents = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin" && req.user.role !== "school") {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "schoolStaff"
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Access denied",
+        message:
+          "Access denied: only admin or school or schoolStaff can view all parents details",
       });
     }
 
@@ -356,10 +391,15 @@ const getAllParents = async (req, res, next) => {
 
 const deleteParentById = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin" && req.user.role !== "school") {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "schoolStaff"
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Access denied",
+        message:
+          "Access denied: only admin or school or schoolStaff can delete a parent",
       });
     }
 
@@ -381,6 +421,15 @@ const deleteParentById = async (req, res, next) => {
       });
     }
 
+    await pool.query(
+      `
+      UPDATE SchoolUsage
+      SET parents_count = parents_count - 1
+      WHERE school_id = $1
+    `,
+      [school_id]
+    );
+
     return res.status(200).json({
       success: true,
       message: "Parent deleted successfully",
@@ -396,10 +445,15 @@ const deleteParentById = async (req, res, next) => {
 
 const deleteAllParents = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin" && req.user.role !== "school") {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "schoolStaff"
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Access denied",
+        message:
+          "Access denied: only admin or school or schoolStaff can delete all parents",
       });
     }
 
@@ -416,6 +470,15 @@ const deleteAllParents = async (req, res, next) => {
         message: "No parents found to delete",
       });
     }
+
+    await pool.query(
+      `
+      UPDATE SchoolUsage
+      SET parents_count = 0
+      WHERE school_id = $1
+    `,
+      [school_id]
+    );
 
     return res.status(200).json({
       success: true,
