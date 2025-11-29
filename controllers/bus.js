@@ -402,13 +402,12 @@ const getBusesBySupervisor = async (req, res) => {
     if (
       req.user.role !== "admin" &&
       req.user.role !== "school" &&
-      req.user.role !== "school_staff" &&
-      req.user.role !== "supervisor"
+      req.user.role !== "school_staff"
     ) {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, supervisor, or school staff can view this data",
+          "Access denied: only admin, or school staff can view this data",
       });
     }
 
