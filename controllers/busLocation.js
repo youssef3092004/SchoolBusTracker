@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const redisClient = require("../config/redis");
 const pagination = require("../utils/pagination");
+let busChannels = {};
 
 const createBusLocation = async (req, res, next) => {
   try {
@@ -10,7 +11,7 @@ const createBusLocation = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school, supervisor and school staff can add locations",
+          "Access denied: only admin, school, supervisor and school staff can create location",
       });
     }
 
@@ -57,11 +58,13 @@ const createBusLocation = async (req, res, next) => {
 
 const getAllBusLocations = async (req, res, next) => {
   try {
-    if (!["admin", "school", "school_staff"].includes(req.user.role)) {
+    if (
+      !["admin", "school", "supervisor", "school_staff"].includes(req.user.role)
+    ) {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school and school staff can view all bus locations",
+          "Access denied: only admin, school, supervisor and school staff can view all bus locations",
       });
     }
 
@@ -112,7 +115,7 @@ const getBusLocationById = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school, supervisor and school staff can add locations",
+          "Access denied: only admin, school, supervisor and school staff can view location",
       });
     }
 
@@ -149,7 +152,7 @@ const getLocationsByBus = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school, supervisor and school staff can add locations",
+          "Access denied: only admin, school, supervisor and school staff can view location",
       });
     }
 
@@ -198,7 +201,7 @@ const updateBusLocationById = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school, supervisor and school staff can update locations",
+          "Access denied: only admin, school, supervisor and school staff can update location",
       });
     }
     const { id } = req.params;
@@ -262,6 +265,15 @@ const updateBusLocationById = async (req, res, next) => {
 
 const deleteBusLocationById = async (req, res, next) => {
   try {
+    if (
+      !["admin", "school", "supervisor", "school_staff"].includes(req.user.role)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, school, supervisor and school staff can delete location",
+      });
+    }
     const { id } = req.params;
     const result = await pool.query(
       "DELETE FROM BusLocation WHERE id = $1 RETURNING *;",
@@ -290,6 +302,15 @@ const deleteBusLocationById = async (req, res, next) => {
 
 const deleteAllBusLocations = async (req, res, next) => {
   try {
+    if (
+      !["admin", "school", "supervisor", "school_staff"].includes(req.user.role)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, school, supervisor and school staff can delete locations",
+      });
+    }
     const result = await pool.query("DELETE FROM BusLocation;");
     return res.status(200).json({
       success: true,
@@ -305,6 +326,104 @@ const deleteAllBusLocations = async (req, res, next) => {
   }
 };
 
+const startRealtimeLocationListener = async (req, res) => {
+  try {
+    if (
+      !["admin", "school", "supervisor", "school_staff"].includes(req.user.role)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, school, supervisor or school staff can start tracking",
+      });
+    }
+    const { bus_id } = req.body;
+
+    if (busChannels[bus_id]) {
+      return res.status(400).json({
+        success: false,
+        message: "Realtime listener already running for this bus",
+      });
+    }
+
+    const channel = pool
+      .channel(`bus-location-${bus_id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "BusLocation",
+          filter: `bus_id=eq.${bus_id}`,
+        },
+        async (payload) => {
+          try {
+            const { latitude, longitude } = payload.new;
+
+            await pool.query(
+              `UPDATE Bus SET lat = $1, lng = $2 WHERE id = $3`,
+              [latitude, longitude, bus_id]
+            );
+          } catch (error) {
+            console.error("DB update failed:", error);
+          }
+        }
+      )
+      .subscribe();
+
+    busChannels[bus_id] = channel;
+
+    return res.status(200).json({
+      success: true,
+      message: "Realtime tracking started",
+    });
+  } catch (error) {
+    console.error("Error starting realtime listener:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to start realtime tracking",
+      error: error.message,
+    });
+  }
+};
+
+const stopRealtimeLocationListener = async (req, res, next) => {
+  try {
+    if (
+      !["admin", "school", "supervisor", "school_staff"].includes(req.user.role)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, school, supervisor or school staff can stop tracking",
+      });
+    }
+    const { bus_id } = req.body;
+
+    if (!busChannels[bus_id]) {
+      return res.status(400).json({
+        success: false,
+        message: "No realtime listener running for this bus",
+      });
+    }
+
+    await pool.removeChannel(busChannels[bus_id]);
+    delete busChannels[bus_id];
+
+    return res.status(200).json({
+      success: true,
+      message: "Realtime tracking stopped successfully",
+    });
+  } catch (error) {
+    console.error("Error stopping realtime listener:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to stop realtime listener",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createBusLocation,
   getAllBusLocations,
@@ -313,4 +432,6 @@ module.exports = {
   updateBusLocationById,
   deleteBusLocationById,
   deleteAllBusLocations,
+  startRealtimeLocationListener,
+  stopRealtimeLocationListener,
 };
