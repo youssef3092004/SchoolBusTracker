@@ -108,12 +108,13 @@ const getAllNotifications = async (req, res, next) => {
     if (
       req.user.role !== "admin" &&
       req.user.role !== "school" &&
-      req.user.role !== "school_staff"
+      req.user.role !== "school_staff" &&
+      req.user.role !== "supervisor"
     ) {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin or school or school_staff can view all notifications",
+          "Access denied: only admin or school or school_staff or supervisor can view all notifications",
       });
     }
     const { page, limit, skip } = pagination(req);
@@ -209,10 +210,16 @@ const updateNotificationById = async (req, res, next) => {
 
 const deleteNotificationById = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin" && req.user.role !== "school") {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "supervisor" &&
+      req.user.role !== "school_staff"
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Access denied: only admin or school can delete notifications",
+        message:
+          "Access denied: only admin or school or supervisor or school_staff can delete notifications",
       });
     }
 
@@ -247,11 +254,16 @@ const deleteNotificationById = async (req, res, next) => {
 
 const deleteAllNotifications = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin" && req.user.role !== "school") {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "supervisor" &&
+      req.user.role !== "school_staff"
+    ) {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin or school can delete all notifications",
+          "Access denied: only admin or school or supervisor or school_staff can delete all notifications",
       });
     }
 
