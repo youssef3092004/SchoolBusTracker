@@ -158,17 +158,17 @@ const getDriverById = async (req, res) => {
 
 const updateDriverById = async (req, res) => {
   try {
-    // if (
-    //   req.user.role !== "admin" &&
-    //   req.user.role !== "school" &&
-    //   req.user.role !== "school_staff"
-    // ) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message:
-    //       "Access denied: only admin, school and school staff can update drivers",
-    //   });
-    // }
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "school_staff"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, school and school staff can update drivers",
+      });
+    }
 
     const { id } = req.params;
     const { name, phone, email } = req.body;
