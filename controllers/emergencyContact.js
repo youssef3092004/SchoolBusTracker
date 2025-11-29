@@ -68,12 +68,13 @@ const getAllEmergencyContacts = async (req, res, next) => {
     if (
       req.user.role !== "admin" &&
       req.user.role !== "school" &&
-      req.user.role !== "school_staff"
+      req.user.role !== "school_staff" &&
+      req.user.role !== "parent"
     ) {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin and school staff can view emergency contacts",
+          "Access denied: only admin, school staff, and parents can view emergency contacts",
       });
     }
 
@@ -236,6 +237,18 @@ const getEmergencyContactsByStudent = async (req, res, next) => {
 
 const updateEmergencyContactById = async (req, res, next) => {
   try {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "school_staff" &&
+      req.user.role !== "parent"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, school, parent and school staff can update emergency contacts",
+      });
+    }
     const { id } = req.params;
     const { name, relationship, phone, email } = req.body;
 
@@ -301,6 +314,19 @@ const updateEmergencyContactById = async (req, res, next) => {
 
 const deleteEmergencyContactById = async (req, res, next) => {
   try {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "school_staff" &&
+      req.user.role !== "parent"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, school, parent and school staff can delete emergency contacts",
+      });
+    }
+
     const { id } = req.params;
 
     const result = await pool.query(
@@ -330,6 +356,18 @@ const deleteEmergencyContactById = async (req, res, next) => {
 
 const deleteAllEmergencyContacts = async (req, res, next) => {
   try {
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "school" &&
+      req.user.role !== "school_staff" &&
+      req.user.role !== "parent"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied: only admin, school, parent and school staff can delete all emergency contacts",
+      });
+    }
     const result = await pool.query("DELETE FROM EmergencyContact;");
 
     if (result.rowCount === 0) {
