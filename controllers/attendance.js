@@ -66,12 +66,13 @@ const getAllAttendance = async (req, res, next) => {
     if (
       req.user.role !== "admin" &&
       req.user.role !== "school" &&
+      req.user.role !== "parent" &&
       req.user.role !== "school_staff"
     ) {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school staff can create attendance records",
+          "Access denied: only admin, school staff, and parents can view attendance records",
       });
     }
 
@@ -151,7 +152,7 @@ const getAttendanceById = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school staff, and parents can create attendance records",
+          "Access denied: only admin, school staff, and parents can view attendance records",
       });
     }
     const { id } = req.params;
@@ -191,7 +192,7 @@ const updateAttendanceById = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school staff, and parents can create attendance records",
+          "Access denied: only admin, school staff, and parents can update attendance records",
       });
     }
     const { id } = req.params;
@@ -258,7 +259,7 @@ const deleteAttendanceById = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school staff can create attendance records",
+          "Access denied: only admin, school staff can delete attendance records",
       });
     }
     const { id } = req.params;
@@ -298,7 +299,7 @@ const deleteAllAttendance = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school staff can create attendance records",
+          "Access denied: only admin, school staff can delete all attendance records",
       });
     }
     const result = await pool.query(`DELETE FROM Attendance`);
@@ -335,7 +336,7 @@ const getAttendanceByStudent = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school staff, and parents can create attendance records",
+          "Access denied: only admin, school staff, and parents can view attendance records",
       });
     }
     const { student_id } = req.params;
@@ -370,7 +371,7 @@ const getAttendanceByDate = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school staff, and parents can create attendance records",
+          "Access denied: only admin, school staff, and parents can view attendance records",
       });
     }
     const { date } = req.params;
@@ -405,7 +406,7 @@ const getAttendanceSummary = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message:
-          "Access denied: only admin, school staff, and parents can create attendance records",
+          "Access denied: only admin, school staff, and parents can view attendance records",
       });
     }
     const { student_id } = req.params;
