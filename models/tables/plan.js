@@ -8,7 +8,8 @@ async function createPlanTable() {
       max_students INT NOT NULL,
       max_parent INT NOT NULL,
       max_supervisor INT NOT NULL,
-      price DECIMAL(10,2) NOT NULL,
+      max_schoolStaff INT NOT NULL,
+      price DECIMAL(10,2),
       description TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
