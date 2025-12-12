@@ -1,195 +1,44 @@
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const { validateEmail, validatePassword } = require("../utils/validate");
 const pagination = require("../utils/pagination");
 const redis = require("../config/redis");
 
-const register = async (req, res) => {
-  try {
-    if (req.user.role !== "admin" && req.user.role !== "school") {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied: only admin or school can create school staff",
-      });
-    }
-
-    const { school_id, name, email, password, role } = req.body;
-    const requiredFields = { school_id, name, email, password, role };
-
-    for (let i in requiredFields) {
-      if (!requiredFields[i]) {
-        return res.status(400).json({
-          success: false,
-          message: `${i.charAt(0).toUpperCase() + i.slice(1)} is required`,
-        });
-      }
-    }
-
-    if (req.user.role === "school") {
-      const schoolCheck = await pool.query(
-        "SELECT id FROM School WHERE id = $1",
-        [req.user.id]
-      );
-      if (
-        schoolCheck.rows.length === 0 ||
-        schoolCheck.rows[0].id !== school_id
-      ) {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied: cannot register staff for another school",
-        });
-      }
-    }
-
-    const roleCheck = await pool.query(
-      "SELECT * FROM RolePermission WHERE role = $1",
-      [role]
-    );
-    if (roleCheck.rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid role: this role ID does not exist",
-      });
-    }
-
-    const existing = await pool.query(
-      "SELECT * FROM SchoolStaff WHERE email = $1",
-      [email]
-    );
-    if (existing.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "A staff member with this email already exists",
-      });
-    }
-
-    if (!validateEmail(email)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email format",
-      });
-    }
-
-    if (!validatePassword(password)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Weak password. Must contain at least 8 characters, one uppercase letter, one number, and one special symbol.",
-      });
-    }
-
-    const passwordHashed = await bcrypt.hash(password, 10);
-
-    const result = await pool.query(
-      `INSERT INTO SchoolStaff (school_id, name, email, password, role)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [school_id, name, email, passwordHashed, role]
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: "School staff member created successfully",
-      data: result.rows[0],
-    });
-  } catch (error) {
-    console.error("Error creating school staff:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
-
-const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email)
-      return res
-        .status(400)
-        .json({ success: false, message: "Email is required" });
-    if (!password)
-      return res
-        .status(400)
-        .json({ success: false, message: "Password is required" });
-
-    const existSchoolStaff = await pool.query(
-      "SELECT * FROM SchoolStaff WHERE email = $1",
-      [email]
-    );
-
-    if (existSchoolStaff.rows.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid email or password (email)" });
-    }
-
-    const staff = existSchoolStaff.rows[0];
-    const isPasswordValid = await bcrypt.compare(password, staff.password);
-
-    if (!isPasswordValid) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email or password (password)",
-      });
-    }
-
-    const token = jwt.sign(
-      { id: staff.id, role: "schoolStaff" },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Login successful",
-      token,
-    });
-  } catch (error) {
-    console.error("Error occurred during login:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
-
-const logout = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization.split(" ")[1];
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: "Token is required for logout",
-      });
-    }
-
-    const decoded = jwt.decode(token);
-    if (!decoded) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid token",
-      });
-    }
-    await pool.query(
-      "INSERT INTO BlackList (token, expired_at) VALUES ($1, $2)",
-      [token, new Date(decoded.exp * 1000)]
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Logout successful",
-    });
-  } catch (error) {
-    console.error("Error occurred during logout:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
+/**
+ * @route   GET /api/v1/school-staff/:id
+ * @access  Private (Admin or School)
+ * @description
+ * Fetch a specific school staff member by their ID. Only users with "admin" or the
+ * associated "school" role can access this endpoint.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Request URL parameters
+ * @param {string} req.params.id - ID of the school staff member to fetch
+ * @param {Object} req.user - Authenticated user info from JWT middleware
+ * @param {string} req.user.role - Role of the authenticated user ("admin", "school", etc.)
+ *
+ * @returns {200} Success - Returns the staff member data
+ * @returns {boolean} 200.success - Indicates success
+ * @returns {Object} 200.data - School staff record
+ *
+ * @throws {403} Access denied if user is neither "admin" nor "school"
+ * @throws {404} If no school staff member is found for the given ID
+ * @throws {500} Internal server error for unexpected issues
+ *
+ * @example
+ * Response:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "id": "uuid",
+ *     "school_id": "school_uuid",
+ *     "name": "John Doe",
+ *     "email": "john@example.com",
+ *     "role": "teacher",
+ *     "created_at": "2025-12-12T10:00:00Z",
+ *     "updated_at": "2025-12-12T10:00:00Z"
+ *   }
+ * }
+ */
 
 const getSchoolStaffById = async (req, res, next) => {
   try {
@@ -225,6 +74,52 @@ const getSchoolStaffById = async (req, res, next) => {
     });
   }
 };
+
+/**
+ * @route   GET /api/v1/school-staff
+ * @access  Private (Admin or School)
+ * @description
+ * Fetch all school staff members with pagination support. Only users with "admin"
+ * or "school" roles can access this endpoint. Uses Redis caching to improve performance.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} req.query - Query parameters for pagination
+ * @param {number} [req.query.page=1] - Page number for pagination
+ * @param {number} [req.query.limit=10] - Number of records per page
+ * @param {Object} req.user - Authenticated user info from JWT middleware
+ * @param {string} req.user.role - Role of the authenticated user ("admin", "school", etc.)
+ *
+ * @returns {200} Success - Returns paginated list of school staff
+ * @returns {boolean} 200.success - Indicates success
+ * @returns {number} 200.page - Current page number
+ * @returns {number} 200.limit - Number of records per page
+ * @returns {number} 200.totalPages - Total number of pages
+ * @returns {Array} 200.data - Array of school staff records
+ *
+ * @throws {403} Access denied if user is neither "admin" nor "school"
+ * @throws {500} Internal server error for unexpected issues
+ *
+ * @example
+ * Response:
+ * {
+ *   "success": true,
+ *   "page": 1,
+ *   "limit": 10,
+ *   "totalPages": 5,
+ *   "data": [
+ *     {
+ *       "id": "uuid",
+ *       "school_id": "school_uuid",
+ *       "name": "John Doe",
+ *       "email": "john@example.com",
+ *       "role": "teacher",
+ *       "created_at": "2025-12-12T10:00:00Z",
+ *       "updated_at": "2025-12-12T10:00:00Z"
+ *     },
+ *     ...
+ *   ]
+ * }
+ */
 
 const getAllSchoolStaff = async (req, res, next) => {
   try {
@@ -269,6 +164,50 @@ const getAllSchoolStaff = async (req, res, next) => {
     });
   }
 };
+
+/**
+ * @route   PATCH /api/v1/school-staff/:id
+ * @access  Private (Admin, School, or SchoolStaff)
+ * @description
+ * Update a school staff member's details by ID. Only users with roles "admin",
+ * "school", or the staff member themselves can perform this action.
+ * Valid fields for update: name, email, password.
+ *
+ * @param {Object} req - Express request object
+ * @param {string} req.params.id - ID of the school staff member to update
+ * @param {Object} req.body - Fields to update
+ * @param {string} [req.body.name] - New name of the staff member
+ * @param {string} [req.body.email] - New email (must be unique and valid)
+ * @param {string} [req.body.password] - New password (must meet complexity requirements)
+ * @param {Object} req.user - Authenticated user info from JWT middleware
+ * @param {string} req.user.role - Role of the authenticated user
+ *
+ * @returns {200} Success - Returns updated school staff member
+ * @returns {boolean} 200.success - Indicates success
+ * @returns {string} 200.message - Success message
+ * @returns {Object} 200.data - Updated school staff record
+ *
+ * @throws {400} Bad request if no valid fields are provided or invalid email/password
+ * @throws {403} Access denied if user is not admin, school, or the staff member
+ * @throws {404} Staff member not found
+ * @throws {500} Internal server error for unexpected issues
+ *
+ * @example
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "School staff updated successfully",
+ *   "data": {
+ *     "id": "uuid",
+ *     "school_id": "school_uuid",
+ *     "name": "Jane Doe",
+ *     "email": "jane@example.com",
+ *     "role": "teacher",
+ *     "created_at": "2025-12-12T10:00:00Z",
+ *     "updated_at": "2025-12-12T12:00:00Z"
+ *   }
+ * }
+ */
 
 const updateSchoolStaffById = async (req, res, next) => {
   try {
@@ -367,6 +306,34 @@ const updateSchoolStaffById = async (req, res, next) => {
   }
 };
 
+/**
+ * @route   DELETE /api/v1/school-staff/:id
+ * @access  Private (Admin or School)
+ * @description
+ * Delete a school staff member by ID. Only users with roles "admin" or "school"
+ * can perform this action. Also decrements the schoolStaff_count in SchoolUsage.
+ *
+ * @param {Object} req - Express request object
+ * @param {string} req.params.id - ID of the school staff member to delete
+ * @param {Object} req.user - Authenticated user info from JWT middleware
+ * @param {string} req.user.role - Role of the authenticated user
+ *
+ * @returns {200} Success - Returns success message
+ * @returns {boolean} 200.success - Indicates success
+ * @returns {string} 200.message - Success message
+ *
+ * @throws {403} Access denied if user is not admin or school
+ * @throws {404} Staff member not found
+ * @throws {500} Internal server error for unexpected issues
+ *
+ * @example
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "School staff member deleted successfully"
+ * }
+ */
+
 const deleteSchoolStaffById = async (req, res, next) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "school") {
@@ -390,6 +357,16 @@ const deleteSchoolStaffById = async (req, res, next) => {
       });
     }
 
+    await pool.query(
+      `
+  UPDATE SchoolUsage
+  SET schoolStaff_count = schoolStaff_count - 1,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE school_id = $1
+`,
+      [school_id]
+    );
+
     return res.status(200).json({
       success: true,
       message: "School staff member deleted successfully",
@@ -403,6 +380,35 @@ const deleteSchoolStaffById = async (req, res, next) => {
   }
 };
 
+/**
+ * @route   DELETE /api/v1/school-staff/all/:school_id
+ * @access  Private (Admin or School)
+ * @description
+ * Delete all school staff members for a specific school. Only users with roles
+ * "admin" or "school" can perform this action. Resets the schoolStaff_count in SchoolUsage.
+ *
+ * @param {Object} req - Express request object
+ * @param {string} req.params.school_id - ID of the school for which all staff will be deleted
+ * @param {Object} req.user - Authenticated user info from JWT middleware
+ * @param {string} req.user.role - Role of the authenticated user
+ *
+ * @returns {200} Success - Returns success message and count of deleted staff
+ * @returns {boolean} 200.success - Indicates success
+ * @returns {string} 200.message - Success message
+ * @returns {number} 200.count - Number of staff members deleted
+ *
+ * @throws {403} Access denied if user is not admin or school
+ * @throws {500} Internal server error for unexpected issues
+ *
+ * @example
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "All school staff members deleted",
+ *   "count": 15
+ * }
+ */
+
 const deleteAllSchoolStaff = async (req, res, next) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "school") {
@@ -412,7 +418,22 @@ const deleteAllSchoolStaff = async (req, res, next) => {
       });
     }
 
-    const result = await pool.query(`DELETE FROM SchoolStaff RETURNING *`);
+    const { school_id } = req.params;
+
+    const result = await pool.query(
+      `DELETE FROM SchoolStaff WHERE school_id = $1 RETURNING *`,
+      [school_id]
+    );
+
+    await pool.query(
+      `
+  UPDATE SchoolUsage
+  SET schoolStaff_count = 0,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE school_id = $1
+`,
+      [school_id]
+    );
 
     return res.status(200).json({
       success: true,
