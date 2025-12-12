@@ -4,7 +4,7 @@ async function createRolePermissionTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS RolePermission (
       id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-      role VARCHAR(50) NOT NULL,
+      role UUID REFERENCES Role(id) ON DELETE CASCADE,
       permission_id UUID REFERENCES Permission(id) ON DELETE CASCADE,
       is_allowed BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
