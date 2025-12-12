@@ -18,7 +18,9 @@ const busRoutes = require("./routes/bus");
 const busAssignmentRoutes = require("./routes/busAssignment");
 const busLocationRoutes = require("./routes/busLocation");
 const emergencyContactRoutes = require("./routes/emergencyContact");
-
+const roleRoutes = require("./routes/role");
+const schoolUsageRoutes = require("./routes/schoolUsage");
+const checkLimitRoutes = require("./routes/checkLimit");
 const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
@@ -39,14 +41,17 @@ app.use("/api/bus", busRoutes);
 app.use("/api/bus-assignment", busAssignmentRoutes);
 app.use("/api/bus-location", busLocationRoutes);
 app.use("/api/emergency-contact", emergencyContactRoutes);
+app.use("/api/role", roleRoutes);
+app.use("/api/school-usage", schoolUsageRoutes);
+app.use("/api/check-limit", checkLimitRoutes);
 
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
 }
 
-app.use('/', (req, res) => {
-  res.send('School Bus Tracker API is running');
+app.use("/", (req, res) => {
+  return res.status(200).send({ message: "School Bus Tracker API is running" });
 });
 
 module.exports = app;

@@ -10,6 +10,7 @@ const createPlanTable = require("./tables/plan");
 
 const createAdminTable = require("./tables/admin");
 const createSchoolTable = require("./tables/school");
+const createSchoolUsageTable = require("./tables/schoolUsage");
 const createSchoolStaffTable = require("./tables/schoolStaff");
 
 const createSupervisorTable = require("./tables/supervisor");
@@ -23,6 +24,7 @@ const createEmergencyContactTable = require("./tables/emergencyContact");
 const createAttendanceTable = require("./tables/attendance");
 const createNotificationTable = require("./tables/notification");
 const createBlackList = require("./tables/blackList");
+const createRoleTable = require("./tables/role");
 
 async function initDB() {
   try {
@@ -33,6 +35,9 @@ async function initDB() {
 
     await createFunctions();
     console.log("Functions created.\n");
+
+    await createRoleTable();
+    console.log("Role table created.");
 
     await createPermissionTable();
     console.log("Permission table created.");
@@ -45,6 +50,9 @@ async function initDB() {
 
     await createSchoolTable();
     console.log("School table created.");
+
+    await createSchoolUsageTable();
+    console.log("SchoolUsage table created.\n");
 
     await createSchoolStaffTable();
     console.log("SchoolStaff table created.");
