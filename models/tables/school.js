@@ -4,7 +4,7 @@ async function createSchoolTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS School (
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      plan UUID REFERENCES Plan(id) ON DELETE SET NULL,
+      plan_id UUID REFERENCES Plan(id) ON DELETE SET NULL,
       name VARCHAR(50) NOT NULL,
       address VARCHAR(50) NOT NULL,
       phone VARCHAR(20) NOT NULL,
