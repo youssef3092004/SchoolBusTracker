@@ -1,179 +1,62 @@
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const {
-  validateEmail,
-  validatePassword,
-  validatePhone,
-} = require("../utils/validate");
 const pagination = require("../utils/pagination");
 const redisClient = require("../config/redis");
 
-const registerSchool = async (req, res, next) => {
-  try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied: only admin can register a school",
-      });
-    }
-
-    const { name, address, phone, email, governorate, password } = req.body;
-    requiredFields = { name, address, phone, email, governorate, password };
-    for (let i in requiredFields) {
-      if (!requiredFields[i]) {
-        return res.status(400).json({
-          success: false,
-          message: `${i.charAt(0).toUpperCase() + i.slice(1)} is required`,
-        });
-      }
-    }
-
-    if (!validateEmail(email)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email format",
-      });
-    }
-
-    if (!validatePassword(password)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Weak password. Must contain at least 8 characters, one uppercase letter, one number, and one special symbol.",
-      });
-    }
-
-    if (!validatePhone(phone)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid phone number format",
-      });
-    }
-
-    const existSchool = await pool.query(
-      "SELECT * FROM School WHERE email = $1",
-      [email]
-    );
-    if (existSchool.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already in use",
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newSchool = await pool.query(
-      `INSERT INTO School (name, address, phone, email, governorate, password)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [name, address, phone, email, governorate, hashedPassword]
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: "School registered successfully",
-      school: newSchool.rows[0],
-    });
-  } catch (error) {
-    console.error("Error occurred during registration:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
-
-const loginSchool = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required",
-      });
-    }
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: "Password is required",
-      });
-    }
-
-    const existSchool = await pool.query(
-      "SELECT * FROM School WHERE email = $1",
-      [email]
-    );
-
-    if (existSchool.rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
-    const school = existSchool.rows[0];
-
-    const isPasswordValid = await bcrypt.compare(password, school.password);
-    if (!isPasswordValid) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
-
-    const token = jwt.sign(
-      { id: school.id, role: "school" },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-    return res.status(200).json({
-      success: true,
-      message: "Login successful",
-      token,
-    });
-  } catch (error) {
-    console.error("Error occurred during login:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
-
-const logoutSchool = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization.split(" ")[1];
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: "Token is required for logout",
-      });
-    }
-
-    const decoded = jwt.decode(token);
-    if (!decoded) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid token",
-      });
-    }
-    await pool.query(
-      "INSERT INTO BlackList (token, expired_at) VALUES ($1, $2)",
-      [token, new Date(decoded.exp * 1000)]
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Logout successful",
-    });
-  } catch (error) {
-    console.error("Error occurred during logout:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
+/**
+ * @route PATCH /api/v1/schools/update
+ * @desc Update school information. Accessible by the school itself or an admin.
+ * @access Private (School, Admin)
+ *
+ * @body {string} [plan_id] - Updated plan ID assigned to the school
+ * @body {string} [name] - Updated school name
+ * @body {string} [address] - Updated address
+ * @body {string} [phone] - Updated phone number
+ * @body {string} [email] - Updated email address
+ * @body {string} [governorate] - Updated governorate
+ * @body {string} [password] - Updated password
+ *
+ * @returns {Object} 200 - Successful update response
+ * @returns {boolean} success - Indicates update success
+ * @returns {string} message - Description of the update result
+ * @returns {Object} school - Updated school data
+ *
+ * @throws {400} If no valid fields are provided for update
+ * @throws {403} If the user is neither a school nor an admin
+ * @throws {404} If the school is not found
+ * @throws {500} For unexpected server errors
+ *
+ * @description
+ * This endpoint updates school details. The authenticated school can update their own
+ * information, and admins can also update any school using the same request.
+ *
+ * Steps performed:
+ * 1. Verify the user role (`school` or `admin`).
+ * 2. Determine which fields from the request body are allowed (`allowedFields`).
+ * 3. Build a dynamic SQL update query using only the allowed fields provided.
+ * 4. Apply the update and return the updated school record.
+ * 5. Automatically update the `updated_at` timestamp.
+ *
+ * Example successful response:
+ * {
+ *   "success": true,
+ *   "message": "School updated successfully",
+ *   "school": {
+ *     "id": "uuid",
+ *     "name": "New Name",
+ *     "address": "New Address",
+ *     "email": "new@mail.com",
+ *     "updated_at": "2025-12-12T10:00:00Z"
+ *   }
+ * }
+ *
+ * Example error response (no valid fields):
+ * {
+ *   "success": false,
+ *   "message": "No valid fields provided for update"
+ * }
+ */
 
 const updateSchool = async (req, res, next) => {
   try {
@@ -186,6 +69,7 @@ const updateSchool = async (req, res, next) => {
 
     const schoolId = req.user.id;
     const allowedFields = [
+      "plan_id",
       "name",
       "address",
       "phone",
@@ -244,6 +128,29 @@ const updateSchool = async (req, res, next) => {
   }
 };
 
+/**
+ * @route   GET /api/v1/schools/:id
+ * @access  Admin Only
+ * @description
+ * This endpoint retrieves a school by its ID. Only an authenticated admin
+ * can access this endpoint. The school ID must be provided as a URL parameter.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} req.user - The authenticated user object containing role
+ * @param {Object} req.params - Route parameters
+ * @param {string} req.params.id - School ID (UUID)
+ *
+ * @returns {200} Success - Returns the school information
+ * @returns {Object} 200.success - Indicates success status
+ * @returns {string} 200.message - Success message
+ * @returns {Object} 200.school - The school record
+ *
+ * @throws {403} Access denied if the user is not an admin
+ * @throws {400} If school ID is missing
+ * @throws {404} If the school is not found
+ * @throws {500} Internal server error
+ */
+
 const getSchoolById = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
@@ -262,12 +169,9 @@ const getSchoolById = async (req, res, next) => {
       });
     }
 
-    const result = await pool.query(
-      `SELECT id, name, address, phone, email, governorate, created_at, updated_at
-       FROM School
-       WHERE id = $1`,
-      [schoolId]
-    );
+    const result = await pool.query(`SELECT * FROM School WHERE id = $1`, [
+      schoolId,
+    ]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -288,6 +192,52 @@ const getSchoolById = async (req, res, next) => {
     });
   }
 };
+
+/**
+ * @route   GET /api/v1/schools
+ * @access  Admin Only
+ * @description
+ * Retrieves a paginated list of all schools. Only an authenticated admin
+ * can access this endpoint. The results are cached in Redis for faster
+ * subsequent requests.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} req.user - Authenticated user object containing role
+ * @param {Object} req.query - Query parameters for pagination
+ * @param {number} [req.query.page=1] - Page number (optional)
+ * @param {number} [req.query.limit=10] - Number of items per page (optional)
+ *
+ * @returns {200} Success - Returns paginated list of schools
+ * @returns {boolean} 200.success - Indicates success status
+ * @returns {number} 200.page - Current page number
+ * @returns {number} 200.limit - Number of items per page
+ * @returns {number} 200.totalPages - Total number of pages
+ * @returns {Array<Object>} 200.data - Array of school records
+ *
+ * @throws {403} Access denied if the user is not an admin
+ * @throws {500} Internal server error for unexpected issues
+ *
+ * @example
+ * Response:
+ * {
+ *   "success": true,
+ *   "page": 1,
+ *   "limit": 10,
+ *   "totalPages": 3,
+ *   "data": [
+ *     {
+ *       "id": "uuid1",
+ *       "name": "ABC School",
+ *       "address": "123 Main St",
+ *       "phone": "0123456789",
+ *       "email": "abc@school.com",
+ *       "governorate": "Cairo",
+ *       "created_at": "2025-12-12T10:00:00Z",
+ *       "updated_at": "2025-12-12T10:00:00Z"
+ *     }
+ *   ]
+ * }
+ */
 
 const getAllSchools = async (req, res, next) => {
   try {
@@ -314,10 +264,7 @@ const getAllSchools = async (req, res, next) => {
     const totalPages = Math.ceil(total / limit);
 
     const result = await pool.query(
-      `SELECT id, name, address, phone, email, governorate, created_at, updated_at
-       FROM School
-       ORDER BY created_at DESC
-       LIMIT $1 OFFSET $2`,
+      `SELECT *FROM School ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
       [limit, skip]
     );
 
@@ -339,6 +286,39 @@ const getAllSchools = async (req, res, next) => {
     });
   }
 };
+
+/**
+ * @route   DELETE /api/v1/schools/:id
+ * @access  Admin Only
+ * @description
+ * Deletes a school by its ID. Only an authenticated admin can perform this action.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} req.user - Authenticated user object containing role
+ * @param {string} req.params.id - ID of the school to delete
+ *
+ * @returns {200} Success - School deleted successfully
+ * @returns {boolean} 200.success - Indicates success status
+ * @returns {string} 200.message - Deletion confirmation message
+ *
+ * @throws {403} Access denied if the user is not an admin
+ * @throws {404} School not found if no school exists with the given ID
+ * @throws {500} Internal server error for unexpected issues
+ *
+ * @example
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "School deleted successfully"
+ * }
+ *
+ * @example
+ * Error Response (not found):
+ * {
+ *   "success": false,
+ *   "message": "School not found"
+ * }
+ */
 
 const deleteSchoolById = async (req, res, next) => {
   try {
@@ -375,6 +355,32 @@ const deleteSchoolById = async (req, res, next) => {
   }
 };
 
+/**
+ * @route   DELETE /api/v1/schools
+ * @access  Admin Only
+ * @description
+ * Deletes all schools from the database. Only an authenticated admin can perform this action.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} req.user - Authenticated user object containing role
+ *
+ * @returns {200} Success - All schools deleted successfully
+ * @returns {boolean} 200.success - Indicates success status
+ * @returns {string} 200.message - Confirmation message
+ * @returns {number} 200.count - Number of schools deleted
+ *
+ * @throws {403} Access denied if the user is not an admin
+ * @throws {500} Internal server error for unexpected issues
+ *
+ * @example
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "All schools deleted successfully",
+ *   "count": 15
+ * }
+ */
+
 const deleteAllSchools = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
@@ -401,9 +407,6 @@ const deleteAllSchools = async (req, res, next) => {
 };
 
 module.exports = {
-  registerSchool,
-  loginSchool,
-  logoutSchool,
   updateSchool,
   getSchoolById,
   getAllSchools,
